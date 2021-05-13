@@ -1,0 +1,1397 @@
+from tkinter import *
+
+from copy import deepcopy
+from PIL import Image, ImageTk,ImageDraw 
+from tkinter import filedialog
+from os.path import splitext
+from webcolors import rgb_to_name, name_to_rgb
+
+root = Tk()
+
+root.title('Draw')
+root.geometry('800x600')
+
+color='black'
+line_width=1
+pencil='on'
+line='off'
+square='off'
+oval='off'
+rubber='off'
+fill='off'
+
+
+xx=None
+yy=None
+xxx=None
+yyy=None
+
+
+intermediate_line=None
+intermediate_sq=None
+intermediate_ov=None
+
+intermediate_list=[]
+obj_list=[]
+redo_list=[]
+pil_list=[]
+pil_inter_list=[]
+pil_redo=[]
+
+redo_switch='off'
+undo_count=0
+cleared='unpressed'
+
+def openfile():
+    global image
+    global draw
+    global image1
+    
+    root.filename =filedialog. askopenfilename(parent=canvas2,initialdir='/home', \
+           title='Select A Name',filetypes=(('png','*.png'), \
+           ('gif','*.gif'), ('bmp','*.bmp'), \
+           ('jpeg','*.jpeg')))
+    if root.filename:
+        image = ImageTk.PhotoImage(Image.open(root.filename))
+        canvas2.create_image(715/2,596/2, image=image)
+
+        image1=Image.open(root.filename)
+        draw = ImageDraw.Draw(image1)
+                        
+
+def openfile_key(event):
+    openfile()
+    
+root.bind('<Control-o>',openfile_key)
+
+
+def save_as():
+    files=[('png','*.png'), ('gif','*.gif'), ('bmp','*.bmp'), \
+           ('jpeg','*.jpeg'), ('eps','*.eps'), ('icns','*.icns'), \
+           ('ico','*.ico'), ('msp','*.msp'), ('pcx','*.pcx'), \
+           ('ppm','*.ppm'), ('sgi','*.sgi'), ('tiff','*.tiff'), \
+           ('webp','*.webp'),('xbm','*.xbm')]
+    root.filename=filedialog.asksaveasfile(initialdir='/home', \
+           title='Select A Name',filetypes=(('png','*.png'), \
+           ('gif','*.gif'), ('bmp','*.bmp'), \
+           ('jpeg','*.jpeg'), ('eps','*.eps'), ('icns','*.icns'), \
+           ('ico','*.ico'), ('msp','*.msp'), ('pcx','*.pcx'), \
+           ('ppm','*.ppm'), ('sgi','*.sgi'), ('tiff','*.tiff'), \
+           ('webp','*.webp'),('xbm','*.xbm')))
+    if root.filename:
+        canvas2.postscript(file='root.filename')
+        img = image1 
+        img.save(root.filename.name, splitext(root.filename.name)[1].strip('.'))
+
+def save_as_key(event):
+    save_as()
+    
+root.bind('<Control-Shift-S>',save_as_key)
+
+def save():
+    try:
+        canvas2.postscript(file='root.filename')
+        img = Image.open('root.filename')
+        img.save(root.filename.name, splitext(root.filename.name)[1].strip('.'))
+    except AttributeError:
+        save_as()
+
+
+def save_key(event):
+    save()
+        
+root.bind('<Control-s>',save_key)
+
+def exiter(event):
+    root.destroy()
+
+root.bind('<Control-q>',exiter)
+
+def clear():
+    global image1
+    global cleared
+    global obj_list
+
+    cleared='pressed'
+    global redo_switch
+    global undo_count
+
+    for el in obj_list:
+        if isinstance(el,list):
+            for el1 in el:
+               canvas2.itemconfigure(el1, state='hidden')
+        else: 
+            canvas2.itemconfigure(el,state='hidden')
+            
+
+    del image1
+    image1 = Image.new("RGB", (715, 596),'white')
+    draw = ImageDraw.Draw(image1)
+
+    redo_switch='off'
+    undo_count=0
+
+def clear_key(event):
+    clear()
+
+root.bind('<Control-Delete>',clear_key)
+
+def undo():
+    global obj_list
+    global redo_list
+    global redo_switch
+    global undo_count
+
+    global pil_list
+    global pil_redo
+
+    global image1
+    global draw
+
+    global cleared
+    
+
+    if cleared=='pressed':
+        for el in obj_list:
+            if isinstance(el,list):
+                for el1 in el:
+                   canvas2.itemconfigure(el1, state='normal')
+            else: 
+                canvas2.itemconfigure(el,state='normal')
+        cleared='unpressed'
+
+        for el in pil_list:
+            if isinstance(el,list):
+                for el1 in el:
+                    if el1[0]=='line':
+                        draw.line([el1[1], el1[2], el1[3], el1[4]], fill=el1[5], width=el1[6], joint='curve')
+                    elif el1[0]=='pixel':
+                        image1.putpixel((el1[1],el1[2]),el1[3])
+            else:
+                if el[0]=='line':
+                    draw.line([el[1], el[2], el[3], el[4]], fill=el[5], width=el[6])
+                elif el[0]=='rectangle':
+                    draw.rectangle([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
+                elif el[0]=='ellipse':
+                    draw.ellipse([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
+
+        
+        return
+    
+    if obj_list!=[]:
+        undo_count+=1
+        redo_switch='on'
+        redo_list.append(deepcopy(obj_list[-1]))
+        if isinstance(obj_list[-1],list):
+            while obj_list[-1]!=[]:
+               canvas2.itemconfigure(obj_list[-1].pop(), state='hidden')
+            obj_list.pop(-1)
+        else: 
+            canvas2.itemconfigure(obj_list[-1],state='hidden')
+            obj_list.pop(-1)
+
+     
+        del image1
+        image1 = Image.new("RGB", (715, 596),'white')
+        draw = ImageDraw.Draw(image1)
+       
+        pil_redo.append(deepcopy(pil_list[-1]))
+        pil_list.pop(-1)
+        for el in pil_list:
+            if isinstance(el,list):
+                for el1 in el:
+                    if el1[0]=='line':
+                        draw.line([el1[1], el1[2], el1[3], el1[4]], fill=el1[5], width=el1[6], joint='curve')
+                    elif el1[0]=='pixel':
+                        image1.putpixel((el1[1],el1[2]),el1[3])
+                    elif el1[0]=='ellipse':
+                        draw.ellipse([el1[1], el1[2], el1[3], el1[4]],outline=el1[5],fill=el1[6])
+ 
+            else:
+                if el[0]=='line':
+                    draw.line([el[1], el[2], el[3], el[4]], fill=el[5], width=el[6])
+                elif el[0]=='rectangle':
+                    draw.rectangle([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
+                elif el[0]=='ellipse':
+                    draw.ellipse([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
+        
+def undo_key(event):
+    undo()
+            
+root.bind('<Control-z>',undo_key)
+    
+
+        
+def redo():
+    global obj_list
+    global redo_list
+    global redo_switch
+    global undo_count
+
+    global pil_list
+    global pil_redo
+
+    global image1
+    global draw
+    
+    if redo_list!=[] and redo_switch=='on' and undo_count!=0:
+        undo_count-=1
+        obj_list.append(deepcopy(redo_list[-1]))
+        if isinstance(redo_list[-1],list):
+            while redo_list[-1]!=[]:
+               canvas2.itemconfigure(redo_list[-1].pop(), state='normal')
+            redo_list.pop(-1)
+        else: 
+            canvas2.itemconfigure(redo_list[-1], state='normal')
+            redo_list.pop(-1)
+
+        
+
+
+
+        del image1
+        image1 = Image.new("RGB", (715, 596),'white')
+        draw = ImageDraw.Draw(image1)
+       
+        pil_list.append(deepcopy(pil_redo[-1]))
+        pil_redo.pop(-1)
+        
+        for el in pil_list:
+            if isinstance(el,list):
+                for el1 in el:
+                    if el1[0]=='line':
+                        draw.line([el1[1], el1[2], el1[3], el1[4]], fill=el1[5], width=el1[6], joint='curve')
+                    elif el1[0]=='pixel':
+                        image1.putpixel((el1[1],el1[2]),el1[3])
+                    elif el1[0]=='ellipse':
+                        draw.ellipse([el1[1], el1[2], el1[3], el1[4]],outline=el1[5],fill=el1[6])
+            else:
+                if el[0]=='line':
+                    draw.line([el[1], el[2], el[3], el[4]], fill=el[5], width=el[6])
+                elif el[0]=='rectangle':
+                    draw.rectangle([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
+                elif el[0]=='ellipse':
+                    draw.ellipse([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
+
+        
+
+def redo_key(event):
+    redo()
+
+root.bind('<Control-Shift-Z>',redo_key)
+
+def change_width(nr):
+    global line_width
+    if nr==1:
+        button9['relief']='sunken'
+        button10['relief']='raised'
+        button11['relief']='raised'
+        button12['relief']='raised'
+        button_20px['relief']='raised'
+
+        button9['bg']='orange'
+        button10['bg']='grey85'
+        button11['bg']='grey85'
+        button12['bg']='grey85'
+        button_20px['bg']='grey85'
+        
+    elif nr==3:
+        button9['relief']='raised'
+        button10['relief']='sunken'
+        button11['relief']='raised'
+        button12['relief']='raised'
+        button_20px['relief']='raised'
+
+        button9['bg']='grey85'
+        button10['bg']='orange'
+        button11['bg']='grey85'
+        button12['bg']='grey85'
+        button_20px['bg']='grey85'
+        
+    elif nr==5:
+        button9['relief']='raised'
+        button10['relief']='raised'
+        button11['relief']='sunken'
+        button12['relief']='raised'
+        button_20px['relief']='raised'
+
+        button9['bg']='grey85'
+        button10['bg']='grey85'
+        button11['bg']='orange'
+        button12['bg']='grey85'
+        button_20px['bg']='grey85'
+        
+    elif nr==10:
+        button9['relief']='raised'
+        button10['relief']='raised'
+        button11['relief']='raised'
+        button12['relief']='sunken'
+        button_20px['relief']='raised'
+        
+        button9['bg']='grey85'
+        button10['bg']='grey85'
+        button11['bg']='grey85'
+        button12['bg']='orange'
+        button_20px['bg']='grey85'
+        
+    elif nr==20:
+        button9['relief']='raised'
+        button10['relief']='raised'
+        button11['relief']='raised'
+        button12['relief']='raised'
+        button_20px['relief']='sunken'
+
+        button9['bg']='grey85'
+        button10['bg']='grey85'
+        button11['bg']='grey85'
+        button12['bg']='grey85'
+        button_20px['bg']='orange'
+        
+    line_width=nr
+
+
+def delete_rubber_square(event):
+    canvas2.itemconfigure(rub, state='hidden')
+
+def undelete_rubber_square(event):
+    canvas2.itemconfigure(rub, state='normal')
+
+def reset_coords(event):
+    canvas2.old_coords = None
+    global obj_list
+    global intermediate_list
+    global pil_inter_list
+    global pil_list
+
+    obj_list.append(intermediate_list)
+    intermediate_list=[]
+
+    pil_list.append(pil_inter_list)
+    pil_inter_list=[]
+   
+
+def motion(event):
+    global color
+    global obj_list
+    global intermediate_list
+    global obj
+    global pil_inter_list
+    
+
+    global redo_switch
+    global undo_count
+    
+    global draw
+    global image1
+
+    global cleared
+    cleared='unpressed'
+    
+    x, y = event.x, event.y
+    
+    
+    if canvas2.old_coords:
+        
+        x1, y1 = canvas2.old_coords
+        if line_width!=1:
+            if line_width==3:
+                obj=canvas2.create_oval(x-line_width/2+1/4, y-line_width/2+1/4, x+line_width/2-1/4,y+line_width/2-1/4,outline=color, fill=color)
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/3, y-line_width/3, x+line_width/3,y+line_width/3],outline=color,fill=color)
+                pil_inter_list.append(('ellipse',x-line_width/3, y-line_width/3, x+line_width/3,y+line_width/3,color,color))
+            elif line_width==5:
+                obj=canvas2.create_oval(x-line_width/2+1/2, y-line_width/2+1/2, x+line_width/2-1/2,y+line_width/2-1/2,outline=color, fill=color)
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/2.5, y-line_width/2.5, x+line_width/2.5,y+line_width/2.5],outline=color,fill=color)
+                pil_inter_list.append(('ellipse',x-line_width/2.5, y-line_width/2.5, x+line_width/2.5,y+line_width/2.5,color,color)) 
+            elif line_width==10:
+                obj=canvas2.create_oval(x-line_width/2+1, y-line_width/2+1, x+line_width/2-1,y+line_width/2-1,outline=color, fill=color)
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2],outline=color,fill=color)
+                pil_inter_list.append(('ellipse',x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2,color,color))
+            elif line_width==20:
+                obj=canvas2.create_oval(x-line_width/2+1, y-line_width/2+1, x+line_width/2-1,y+line_width/2-1,outline=color, fill=color)
+                intermediate_list.append(obj)
+                
+                draw.ellipse([x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2],outline=color,fill=color)
+                pil_inter_list.append(('ellipse',x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2,color,color))
+            
+        obj=canvas2.create_line(x, y, x1, y1, fill=color,width=line_width)
+        intermediate_list.append(obj)
+# PIL draw
+        
+        
+        draw.line([x, y, x1, y1], fill=color, width=line_width+1, joint='curve')
+        pil_inter_list.append(('line',x,y,x1,y1,color,line_width+1))
+        
+        
+        
+            
+    
+    
+    canvas2.old_coords = x, y
+    canvas2.bind('<ButtonRelease-1>', reset_coords)
+    redo_switch='off'
+    undo_count=0
+
+def callback(event):
+    x, y = event.x, event.y
+    canvas2.coords(rub, x - line_width/2 , y - line_width/2, x + line_width/2, y + line_width/2)
+    
+
+def rubberer(event):
+    global color
+    global obj_list
+    global intermediate_list
+    global obj
+    global pil_inter_list
+    
+
+    global redo_switch
+    global undo_count
+
+    global draw
+    global image1
+
+    global cleared
+    cleared='unpressed'
+
+    x, y = event.x, event.y
+    
+  
+    if canvas2.old_coords:
+        
+        x1, y1 = canvas2.old_coords
+        if line_width!=1:
+            if line_width==3:
+                obj=canvas2.create_oval(x-line_width/2+1/4, y-line_width/2+1/4, x+line_width/2-1/4,y+line_width/2-1/4,outline='white', fill='white')
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/3, y-line_width/3, x+line_width/3,y+line_width/3],outline='white',fill='white')
+                pil_inter_list.append(('ellipse',x-line_width/3, y-line_width/3, x+line_width/3,y+line_width/3,color,color))
+            elif line_width==5:
+                obj=canvas2.create_oval(x-line_width/2+1/2, y-line_width/2+1/2, x+line_width/2-1/2,y+line_width/2-1/2,outline='white', fill='white')
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/2.5, y-line_width/2.5, x+line_width/2.5,y+line_width/2.5],outline='white',fill='white')
+                pil_inter_list.append(('ellipse',x-line_width/2.5, y-line_width/2.5, x+line_width/2.5,y+line_width/2.5,'white','white')) 
+            elif line_width==10:
+                obj=canvas2.create_oval(x-line_width/2+1, y-line_width/2+1, x+line_width/2-1,y+line_width/2-1,outline='white', fill='white')
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2],outline='white',fill='white')
+                pil_inter_list.append(('ellipse',x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2,'white','white'))
+            elif line_width==20:
+                obj=canvas2.create_oval(x-line_width/2+1, y-line_width/2+1, x+line_width/2-1,y+line_width/2-1,outline='white', fill='white')
+                intermediate_list.append(obj)
+
+                draw.ellipse([x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2],outline='white',fill='white')
+                pil_inter_list.append(('ellipse',x-line_width/2, y-line_width/2, x+line_width/2,y+line_width/2,'white','white'))
+            
+        obj=canvas2.create_line(x, y, x1, y1, fill='white',width=line_width)
+        intermediate_list.append(obj)
+# PIL draw
+        draw.line([x, y, x1, y1], fill='white', width=line_width+1, joint='curve')
+        pil_inter_list.append(('line',x,y,x1,y1,'white',line_width+1,'curve'))
+
+
+    canvas2.old_coords = x, y
+    canvas2.bind('<ButtonRelease-1>', reset_coords)
+
+    
+    canvas2.coords(rub, x - line_width/2 , y - line_width/2, x + line_width/2, y + line_width/2)
+    canvas2.tag_raise(rub)
+    
+    redo_switch='off'
+    undo_count=0
+
+def click(event):
+    global xx
+    global yy
+    xx=event.x
+    yy=event.y
+
+def line_motion(event):
+    global xx
+    global yy
+    global xxx
+    global yyy
+    global intermediate_line
+
+    xxx=event.x
+    yyy=event.y
+    if intermediate_line:
+        canvas2.delete(intermediate_line)
+    intermediate_line=canvas2.create_line(xx, yy, xxx, yyy, fill=color,width=line_width)
+    
+def release(event):
+    global xxx
+    global yyy
+
+    global xx
+    global yy
+
+    global intermediate_line
+
+    global obj
+    global obj_list
+    global pil_list
+
+    global redo_switch
+    global undo_count
+
+    global draw
+    global image1
+
+    global cleared
+    cleared='unpressed'
+    
+    xxx=event.x
+    yyy=event.y
+    
+    canvas2.delete(intermediate_line)
+    obj=canvas2.create_line(xx, yy, xxx, yyy, fill=color,width=line_width)
+    obj_list.append(obj)
+    redo_switch='off'
+    undo_count=0
+# PIL draw
+    draw.line([xx, yy, xxx, yyy], fill=color, width=line_width)
+    pil_list.append(('line',xx,yy,xxx,yyy,color,line_width))
+    
+    
+    
+
+
+def click_sq(event):
+    global xx
+    global yy
+    xx=event.x
+    yy=event.y
+
+def sq_motion(event):
+    global xx
+    global yy
+    global xxx
+    global yyy
+    global intermediate_sq
+
+    xxx=event.x
+    yyy=event.y
+    if intermediate_sq:
+        canvas2.delete(intermediate_sq)
+    intermediate_sq=canvas2.create_rectangle(xx, yy, xxx, yyy, outline=color, width=line_width)
+    
+def release_sq(event):
+    global xx
+    global yy
+    
+    global xxx
+    global yyy
+    
+    global intermediate_sq
+    
+    global obj
+    global obj_list
+    global pil_list
+
+    global redo_switch
+    global undo_count
+
+    global draw
+    global image1
+
+    global cleared
+    cleared='unpressed'
+    
+    xxx=event.x
+    yyy=event.y
+
+    canvas2.delete(intermediate_sq)
+    obj=canvas2.create_rectangle(xx, yy, xxx, yyy, outline=color, width=line_width)
+    obj_list.append(obj)
+    redo_switch='off'
+    undo_count=0
+# PIL draw
+    draw.rectangle([xx-line_width/2, yy-line_width/2, xxx+line_width/2, yyy+line_width/2], outline=color, width=line_width)
+    pil_list.append(('rectangle',xx-line_width/2, yy-line_width/2, xxx+line_width/2, yyy+line_width/2,color,line_width))
+    
+
+
+
+def click_ov(event):
+    global xx
+    global yy
+    xx=event.x
+    yy=event.y
+
+def ov_motion(event):
+    global xx
+    global yy
+    global xxx
+    global yyy
+    global intermediate_ov
+    
+
+    xxx=event.x
+    yyy=event.y
+    if intermediate_ov:
+        canvas2.delete(intermediate_ov)
+    intermediate_ov=canvas2.create_oval(xx, yy, xxx, yyy, outline=color, width=line_width)
+    
+def release_ov(event):
+    global xxx
+    global yyy
+
+    global xx
+    global yy
+
+    global intermediate_ov
+
+    global obj
+    global obj_list
+    global pil_list
+
+    global redo_switch
+    global undo_count
+
+    global draw
+    global image1
+
+    global cleared
+    cleared='unpressed'
+    
+    xxx=event.x
+    yyy=event.y
+
+    canvas2.delete(intermediate_ov)
+    obj=canvas2.create_oval(xx, yy, xxx, yyy, outline=color, width=line_width)
+    obj_list.append(obj)
+    redo_switch='off'
+    undo_count=0
+# PIL draw
+    draw.ellipse([xx-line_width/2, yy-line_width/2, xxx+line_width/2, yyy+line_width/2], outline=color, width=line_width)
+    pil_list.append(('ellipse',xx-line_width/2, yy-line_width/2, xxx+line_width/2, yyy+line_width/2,color,line_width))
+    
+    
+
+
+
+def pencil_():
+    global pencil
+    global line
+    global square
+    global oval
+    global rubber
+    global fill
+
+    
+    line='off'
+    button_draw_line['relief']='raised'
+    button_draw_line['bg']='grey85'
+
+    square='off'
+    button_draw_square['relief']='raised'
+    button_draw_square['bg']='grey85'
+
+    oval='off'
+    button_draw_oval['relief']='raised'
+    button_draw_oval['bg']='grey85'
+
+    rubber='off'
+    button_rubber['relief']='raised'
+    button_rubber['bg']='grey85'
+    canvas2.unbind('<Motion>')
+    canvas2.unbind("<Leave>")
+    canvas2.unbind("<Enter>")
+
+    fill='off'
+    button_fill['relief']='raised'
+    button_fill['bg']='grey85'
+    canvas2.unbind('<Button>')
+
+    
+    if pencil=='off':
+        pencil='on'
+        canvas2['cursor']='pencil'
+        button_pencil['relief']='sunken'
+        button_pencil['bg']='orange'
+        canvas2.bind('<B1-Motion>',motion)
+        
+        
+    elif pencil=='on':
+        pencil='off'
+        canvas2['cursor']='arrow'
+        button_pencil['relief']='raised'
+        button_pencil['bg']='grey85'
+        canvas2.unbind('<B1-Motion>')
+        canvas2.bind('<Button>',color_localizer)
+
+def draw_line():
+    global line
+    global pencil
+    global square
+    global oval
+    global rubber
+    global fill
+    
+    global xx
+    global yy
+    global xxx
+    global yyy
+    
+    
+    pencil='off'
+    button_pencil['relief']='raised'
+    button_pencil['bg']='grey85'
+    canvas2.unbind('<B1-Motion>')
+
+    square='off'
+    button_draw_square['relief']='raised'
+    button_draw_square['bg']='grey85'
+
+    oval='off'
+    button_draw_oval['relief']='raised'
+    button_draw_oval['bg']='grey85'
+
+    rubber='off'
+    button_rubber['relief']='raised'
+    button_rubber['bg']='grey85'
+    canvas2.unbind('<Motion>')
+    canvas2.unbind("<Leave>")
+    canvas2.unbind("<Enter>")
+
+    fill='off'
+    button_fill['relief']='raised'
+    button_fill['bg']='grey85'
+    canvas2.unbind('<Button>')
+
+    
+    if line=='off':
+        line='on'
+        canvas2['cursor']='cross'
+        button_draw_line['relief']='sunken'
+        button_draw_line['bg']='orange'
+        canvas2.bind('<Button-1>',click)
+        canvas2.bind('<B1-Motion>',line_motion)
+        canvas2.bind('<ButtonRelease-1>',release)
+        
+            
+    elif line=='on':
+        line='off'
+        canvas2['cursor']='arrow'
+        button_draw_line['relief']='raised'
+        button_draw_line['bg']='grey85'
+        canvas2.unbind('<Button-1>')
+        canvas2.unbind('<ButtonRelease-1>')
+        canvas2.unbind('<B1-Motion>')
+        canvas2.bind('<Button>',color_localizer)
+
+def draw_square():
+    global square
+    global line
+    global pencil
+    global oval
+    global rubber
+    global fill
+    
+    pencil='off'
+    button_pencil['relief']='raised'
+    button_pencil['bg']='grey85'
+    canvas2.unbind('<B1-Motion>')
+    
+    line='off'
+    button_draw_line['relief']='raised'
+    button_draw_line['bg']='grey85'
+    canvas2.unbind('<Button-1>')
+    canvas2.unbind('<ButtonRelease-1>')
+
+    oval='off'
+    button_draw_oval['relief']='raised'
+    button_draw_oval['bg']='grey85'
+    
+    rubber='off'
+    button_rubber['relief']='raised'
+    button_rubber['bg']='grey85'
+    canvas2.unbind('<Motion>')
+    canvas2.unbind("<Leave>")
+    canvas2.unbind("<Enter>")
+
+    fill='off'
+    button_fill['relief']='raised'
+    button_fill['bg']='grey85'
+    canvas2.unbind('<Button>')
+
+
+    if square=='off':
+        square='on'
+        canvas2['cursor']='cross'
+        button_draw_square['relief']='sunken'
+        button_draw_square['bg']='orange'
+        canvas2.bind('<Button-1>',click_sq)
+        canvas2.bind('<B1-Motion>',sq_motion)
+        canvas2.bind('<ButtonRelease-1>',release_sq)
+
+    elif square=='on':
+        square='off'
+        canvas2['cursor']='arrow'
+        button_draw_square['relief']='raised'
+        button_draw_square['bg']='grey85'
+        canvas2.unbind('<Button-1>')
+        canvas2.unbind('<ButtonRelease-1>')
+        canvas2.unbind('<B1-Motion>')
+        canvas2.bind('<Button>',color_localizer)
+
+def draw_oval():
+    global square
+    global line
+    global pencil
+    global oval
+    global rubber
+    global fill
+    
+    pencil='off'
+    button_pencil['relief']='raised'
+    button_pencil['bg']='grey85'
+    canvas2.unbind('<B1-Motion>')
+    
+    line='off'
+    button_draw_line['relief']='raised'
+    button_draw_line['bg']='grey85'
+    canvas2.unbind('<Button-1>')
+    canvas2.unbind('<ButtonRelease-1>')
+
+    square='off'
+    button_draw_square['relief']='raised'
+    button_draw_square['bg']='grey85'
+
+    rubber='off'
+    button_rubber['relief']='raised'
+    button_rubber['bg']='grey85'
+    canvas2.unbind('<Motion>')
+    canvas2.unbind("<Leave>")
+    canvas2.unbind("<Enter>")
+
+    fill='off'
+    button_fill['relief']='raised'
+    button_fill['bg']='grey85'
+    canvas2.unbind('<Button>')
+
+
+    if oval=='off':
+        oval='on'
+        canvas2['cursor']='cross'
+        button_draw_oval['relief']='sunken'
+        button_draw_oval['bg']='orange'
+        canvas2.bind('<Button-1>',click_ov)
+        canvas2.bind('<B1-Motion>',ov_motion)
+        canvas2.bind('<ButtonRelease-1>',release_ov)
+
+    elif oval=='on':
+        oval='off'
+        canvas2['cursor']='arrow'
+        button_draw_oval['relief']='raised'
+        button_draw_oval['bg']='grey85'
+        canvas2.unbind('<Button-1>')
+        canvas2.unbind('<ButtonRelease-1>')
+        canvas2.unbind('<B1-Motion>')
+        canvas2.bind('<Button>',color_localizer)
+    
+def rubber_tool():
+    global rub
+    global rubber
+    global fill
+    global square
+    global line
+    global pencil
+    global oval
+
+    pencil='off'
+    button_pencil['relief']='raised'
+    button_pencil['bg']='grey85'
+    canvas2.unbind('<B1-Motion>')
+    
+    line='off'
+    button_draw_line['relief']='raised'
+    button_draw_line['bg']='grey85'
+    canvas2.unbind('<Button-1>')
+    canvas2.unbind('<ButtonRelease-1>')
+
+    square='off'
+    button_draw_square['relief']='raised'
+    button_draw_square['bg']='grey85'
+
+    oval='off'
+    button_draw_oval['relief']='raised'
+    button_draw_oval['bg']='grey85'
+
+    fill='off'
+    button_fill['relief']='raised'
+    button_fill['bg']='grey85'
+    canvas2.unbind('<Button>')
+
+    if rubber=='off':
+        rubber='on'
+        button_rubber['relief']='sunken'
+        button_rubber['bg']='orange'
+        canvas2['cursor']='none'
+        rub = canvas2.create_rectangle(0, 0, 0, 0,fill='white')
+        canvas2.bind('<Motion>', callback)
+        canvas2.bind("<Leave>", delete_rubber_square)
+        canvas2.bind("<Enter>", undelete_rubber_square)
+        canvas2.bind('<B1-Motion>',rubberer)
+       
+        
+    elif rubber=='on':
+        rubber='off'
+        canvas2['cursor']='arrow'
+        button_rubber['relief']='raised'
+        button_rubber['bg']='grey85'
+        canvas2.unbind('<Motion>')
+        canvas2.unbind("<Enter>")
+        canvas2.unbind("<Leave>")
+        canvas2.unbind('<B1-Motion>')
+        canvas2.bind('<Button>',color_localizer)
+        
+
+        
+def floodfill(event):
+
+    x=event.x
+    y=event.y
+
+    global color
+    global pix_col
+
+    global intermediate_list
+    global obj
+    global pil_inter_list
+    
+
+    global redo_switch
+    global undo_count
+
+    pix_col=rgb_to_name(image1.getpixel((x,y)))
+    print(pix_col)
+    if pix_col!=color:
+        q=[]
+        q.append((x,y))
+        q.append((x,y))
+        for n in q:
+            if  n[0]==0 or n[1]==0 or n[0]==714 or n[1]==595: 
+                continue
+            if rgb_to_name(image1.getpixel((n[0],n[1])))==pix_col:
+                obj=canvas2.create_rectangle(n[0],n[1],n[0],n[1],outline=color)
+                intermediate_list.append(obj)
+                image1.putpixel((n[0],n[1]), name_to_rgb(color))
+                pil_inter_list.append(('pixel',n[0],n[1],name_to_rgb(color)))
+            if  rgb_to_name(image1.getpixel((n[0]+1,n[1])))==pix_col:
+                q.append((n[0]+1,n[1]))
+                obj=canvas2.create_rectangle(n[0]+1,n[1],n[0]+1,n[1],outline=color)
+                intermediate_list.append(obj)
+                image1.putpixel((n[0]+1,n[1]), name_to_rgb(color))
+                pil_inter_list.append(('pixel',n[0]+1,n[1],name_to_rgb(color)))
+            if  rgb_to_name(image1.getpixel((n[0]-1,n[1])))==pix_col:
+                q.append((n[0]-1,n[1]))
+                obj=canvas2.create_rectangle(n[0]-1,n[1],n[0]-1,n[1],outline=color)
+                intermediate_list.append(obj)
+                image1.putpixel((n[0]-1,n[1]), name_to_rgb(color))
+                pil_inter_list.append(('pixel',n[0]-1,n[1],name_to_rgb(color)))
+            if  rgb_to_name(image1.getpixel((n[0],n[1]+1)))==pix_col:
+                q.append((n[0],n[1]+1))
+                obj=canvas2.create_rectangle(n[0],n[1]+1,n[0],n[1]+1,outline=color)
+                intermediate_list.append(obj)
+                image1.putpixel((n[0],n[1]+1), name_to_rgb(color))
+                pil_inter_list.append(('pixel',n[0],n[1]+1,name_to_rgb(color)))
+            if  rgb_to_name(image1.getpixel((n[0],n[1]-1)))==pix_col:
+                q.append((n[0],n[1]-1))
+                obj=canvas2.create_rectangle(n[0],n[1]-1,n[0],n[1]-1,outline=color)
+                intermediate_list.append(obj)
+                image1.putpixel((n[0],n[1]-1), name_to_rgb(color))
+                pil_inter_list.append(('pixel',n[0],n[1]-1,name_to_rgb(color)))
+
+        redo_switch='off'
+        undo_count=0
+        canvas2.bind('<ButtonRelease-1>', reset_coords)
+
+def filler():
+    global fill
+    global rub
+    global rubber
+    global square
+    global line
+    global pencil
+    global oval
+
+    pencil='off'
+    button_pencil['relief']='raised'
+    button_pencil['bg']='grey85'
+    canvas2.unbind('<B1-Motion>')
+    
+    line='off'
+    button_draw_line['relief']='raised'
+    button_draw_line['bg']='grey85'
+    canvas2.unbind('<Button-1>')
+    canvas2.unbind('<ButtonRelease-1>')
+
+    square='off'
+    button_draw_square['relief']='raised'
+    button_draw_square['bg']='grey85'
+
+    oval='off'
+    button_draw_oval['relief']='raised'
+    button_draw_oval['bg']='grey85'
+
+    rubber='off'
+    button_rubber['relief']='raised'
+    button_rubber['bg']='grey85'
+    canvas2.unbind('<Motion>')
+    canvas2.unbind("<Leave>")
+    canvas2.unbind("<Enter>")
+
+
+    if fill=='off':
+        fill='on'
+        button_fill['relief']='sunken'
+        button_fill['bg']='orange'
+        canvas2['cursor']='cross'
+        canvas2.bind('<Button>',floodfill)
+       
+        
+    elif fill=='on':
+        fill='off'
+        canvas2['cursor']='arrow'
+        button_fill['relief']='raised'
+        button_fill['bg']='grey85'
+        canvas2.unbind('<Button>')
+        canvas2.unbind('<B1-Motion>')
+        canvas2.bind('<Button>',color_localizer)
+    
+
+
+def drawer(col):
+    global pencil
+    global color
+    
+    if col=='black':
+        color='black'
+        button1.config(text='x',fg='white')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='red':
+        color='red'
+        button1.config(text='')
+        button2.config(text='x')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='orange':
+        color='orange'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='x')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='yellow':
+        color='yellow'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='x')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='green':
+        color='green'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='x')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='blue':
+        color='blue'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='x')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='indigo':
+        color='indigo'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='x')
+        button8.config(text='')
+        button_white.config(text='')
+    if col=='violet':
+        color='violet'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='x')
+        button_white.config(text='')
+
+    if col=='white':
+        color='white'
+        button1.config(text='')
+        button2.config(text='')
+        button3.config(text='')
+        button4.config(text='')
+        button5.config(text='')
+        button6.config(text='')
+        button7.config(text='')
+        button8.config(text='')
+        button_white.config(text='x')
+
+def color_localizer(event):
+    x=event.x
+    y=event.y
+    new_col=rgb_to_name(image1.getpixel((x,y)))
+    drawer(new_col)
+
+menubar = Menu(root)
+filemenu = Menu(menubar, tearoff=0)
+filemenu.add_command(label="Open...       Ctrl+O", command=openfile)
+filemenu.add_separator()
+filemenu.add_command(label="Save          Ctrl+S", command=save)
+filemenu.add_command(label="Save As...  Ctrl+Shift+S", command=save_as)
+filemenu.add_separator()
+filemenu.add_command(label="Exit           Ctrl+Q", command=root.destroy)
+menubar.add_cascade(label="File", menu=filemenu)
+
+editmenu = Menu(menubar, tearoff=0)
+editmenu.add_command(label="Clear         Ctrl+Del", command=clear)
+editmenu.add_command(label="Undo         Ctrl+Z", command=undo)
+editmenu.add_command(label="Redo         Ctrl+Shift+Z", command=redo)
+menubar.add_cascade(label="Edit", menu=editmenu)
+
+root.config(menu=menubar)
+
+canvas1=Canvas(root, width=80,height=596,bg='white')
+canvas1.grid(row=0, column=0)
+
+canvas2=Canvas(root, width=715,height=596,bg='white')
+canvas2.grid(row=0, column=1)
+
+# PIL create an empty image and draw object to draw on
+# memory only, not visible
+image1 = Image.new("RGB", (715, 596),'white')
+draw = ImageDraw.Draw(image1)
+
+canvas2['cursor']='pencil'
+canvas2.bind('<B1-Motion>',motion)
+
+canvas2.old_coords = None
+
+
+label1=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label1.grid(row=0, column=0)
+label1.grid_rowconfigure(0, weight=1)
+label1.grid_columnconfigure(0, weight=1)
+label1.grid_propagate(False)
+
+label2=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label2.grid(row=1, column=0)
+label2.grid_rowconfigure(0, weight=1)
+label2.grid_columnconfigure(0, weight=1)
+label2.grid_propagate(False)
+
+label3=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label3.grid(row=2, column=0)
+label3.grid_rowconfigure(0, weight=1)
+label3.grid_columnconfigure(0, weight=1)
+label3.grid_propagate(False)
+
+label4=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label4.grid(row=3, column=0)
+label4.grid_rowconfigure(0, weight=1)
+label4.grid_columnconfigure(0, weight=1)
+label4.grid_propagate(False)
+
+label5=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label5.grid(row=4, column=0)
+label5.grid_rowconfigure(0, weight=1)
+label5.grid_columnconfigure(0, weight=1)
+label5.grid_propagate(False)
+
+label6=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label6.grid(row=5, column=0)
+label6.grid_rowconfigure(0, weight=1)
+label6.grid_columnconfigure(0, weight=1)
+label6.grid_propagate(False)
+
+label7=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label7.grid(row=6, column=0)
+label7.grid_rowconfigure(0, weight=1)
+label7.grid_columnconfigure(0, weight=1)
+label7.grid_propagate(False)
+
+label8=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label8.grid(row=7, column=0)
+label8.grid_rowconfigure(0, weight=1)
+label8.grid_columnconfigure(0, weight=1)
+label8.grid_propagate(False)
+
+label9=LabelFrame(canvas1,borderwidth=0, width=80, height=120)
+label9.grid(row=8, column=0)
+label9.grid_rowconfigure(0, weight=1)
+label9.grid_columnconfigure(0, weight=1)
+label9.grid_propagate(False)
+
+label10=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label10.grid(row=9, column=0)
+label10.grid_rowconfigure(0, weight=1)
+label10.grid_columnconfigure(0, weight=1)
+label10.grid_propagate(False)
+
+label11=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label11.grid(row=10, column=0)
+label11.grid_rowconfigure(0, weight=1)
+label11.grid_columnconfigure(0, weight=1)
+label11.grid_propagate(False)
+
+label12=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label12.grid(row=11, column=0)
+label12.grid_rowconfigure(0, weight=1)
+label12.grid_columnconfigure(0, weight=1)
+label12.grid_propagate(False)
+
+label13=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label13.grid(row=12, column=0)
+label13.grid_rowconfigure(0, weight=1)
+label13.grid_columnconfigure(0, weight=1)
+label13.grid_propagate(False)
+
+label14=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label14.grid(row=13, column=0)
+label14.grid_rowconfigure(0, weight=1)
+label14.grid_columnconfigure(0, weight=1)
+label14.grid_propagate(False)
+
+label15=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label15.grid(row=14, column=0)
+label15.grid_rowconfigure(0, weight=1)
+label15.grid_columnconfigure(0, weight=1)
+label15.grid_propagate(False)
+
+label16=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label16.grid(row=15, column=0)
+label16.grid_rowconfigure(0, weight=1)
+label16.grid_columnconfigure(0, weight=1)
+label16.grid_propagate(False)
+
+label17=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
+label17.grid(row=16, column=0)
+label17.grid_rowconfigure(0, weight=1)
+label17.grid_columnconfigure(0, weight=1)
+label17.grid_propagate(False)
+
+
+
+
+
+button1=Button(label1,bg='black', text='x',fg='white', activebackground='black',activeforeground='white',cursor='hand2',command=lambda:drawer('black'))
+button1.grid(row=0,column=0,sticky='nesw')
+
+button2=Button(label2,bg='red',activebackground='red',cursor='hand2',command=lambda:drawer('red'))
+button2.grid(row=0,column=0,sticky='nesw')
+
+button3=Button(label3,bg='orange',activebackground='orange',cursor='hand2',command=lambda:drawer('orange'))
+button3.grid(row=0,column=0,sticky='nesw')
+
+button4=Button(label4,bg='yellow',activebackground='yellow',cursor='hand2',command=lambda:drawer('yellow'))
+button4.grid(row=0,column=0,sticky='nesw')
+
+button5=Button(label5,bg='green',activebackground='green',cursor='hand2',command=lambda:drawer('green'))
+button5.grid(row=0,column=0,sticky='nesw')
+
+button6=Button(label6,bg='blue',activebackground='blue',cursor='hand2',command=lambda:drawer('blue'))
+button6.grid(row=0,column=0,sticky='nesw')
+
+button7=Button(label7,bg='indigo',activebackground='indigo',cursor='hand2',command=lambda:drawer('indigo'))
+button7.grid(row=0,column=0,sticky='nesw')
+
+button8=Button(label8,bg='violet',activebackground='violet',cursor='hand2',command=lambda:drawer('violet'))
+button8.grid(row=0,column=0,sticky='nesw')
+
+button9=Button(label9,cursor='hand2',text='1 px',relief='sunken',bg='orange',command=lambda:change_width(1))
+button9.grid(row=0,column=0,sticky='nesw')
+
+button10=Button(label9,cursor='hand2',text='3 px',command=lambda:change_width(3))
+button10.grid(row=1,column=0,sticky='nesw')
+
+button11=Button(label9,cursor='hand2',text='5 px',command=lambda:change_width(5))
+button11.grid(row=2,column=0,sticky='nesw')
+
+button12=Button(label9,cursor='hand2',text='10 px',command=lambda:change_width(10))
+button12.grid(row=3,column=0,sticky='nesw')
+
+button_pencil=Button(label10,cursor='hand2',relief='sunken',bg='orange',text='Pencil',command=pencil_)
+button_pencil.grid(row=0,column=0,sticky='nesw')
+
+button_draw_line=Button(label11,cursor='hand2',text='Line',command=draw_line)
+button_draw_line.grid(row=0,column=0,sticky='nesw')
+
+button_draw_square=Button(label12,cursor='hand2',text='Square',command=draw_square)
+button_draw_square.grid(row=0,column=0,sticky='nesw')
+
+button_draw_oval=Button(label13,cursor='hand2',text='Oval',command=draw_oval)
+button_draw_oval.grid(row=0,column=0,sticky='nesw')
+
+button_20px=Button(label14,cursor='hand2',text='20 px',command=lambda:change_width(20))
+button_20px.grid(row=0,column=0,sticky='nesw')
+
+button_rubber=Button(label15,cursor='hand2',text='Rubber',command=rubber_tool)
+button_rubber.grid(row=0,column=0,sticky='nesw')
+
+button_fill=Button(label16,cursor='hand2',text='Fill',command=filler)
+button_fill.grid(row=0,column=0,sticky='nesw')
+
+button_white=Button(label17,bg='white',activebackground='white',cursor='hand2',command=lambda:drawer('white'))
+button_white.grid(row=0,column=0,sticky='nesw')
+
+
+    
+    
+
+
+
+
+root.mainloop()
+
+
+    
+ 
