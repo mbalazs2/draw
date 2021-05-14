@@ -6,10 +6,13 @@ from tkinter import filedialog
 from os.path import splitext
 from webcolors import rgb_to_name, name_to_rgb
 
+#defining tkinter window
 root = Tk()
 
 root.title('Draw')
 root.geometry('800x600')
+
+#global variables
 
 color='black'
 line_width=1
@@ -42,21 +45,39 @@ redo_switch='off'
 undo_count=0
 cleared='unpressed'
 
+#function for open file menu button using tkinter filedialog and PIL
+
 def openfile():
     global image
     global draw
     global image1
+
+    global canvas2
+    global image2
     
     root.filename =filedialog. askopenfilename(parent=canvas2,initialdir='/home', \
            title='Select A Name',filetypes=(('png','*.png'), \
            ('gif','*.gif'), ('bmp','*.bmp'), \
            ('jpeg','*.jpeg')))
     if root.filename:
+        
+        canvas2=Canvas(root, width=715,height=596,bg='white')
+        canvas2.grid(row=0, column=1)
+        canvas2['cursor']='pencil'
+        canvas2.bind('<B1-Motion>',motion)
         image = ImageTk.PhotoImage(Image.open(root.filename))
         canvas2.create_image(715/2,596/2, image=image)
 
-        image1=Image.open(root.filename)
+
+        image1 = Image.new("RGB", (715, 596),'white')
         draw = ImageDraw.Draw(image1)
+        image2=Image.open(root.filename)
+        draw = ImageDraw.Draw(image2)
+        
+        
+        
+
+        
                         
 
 def openfile_key(event):
@@ -64,6 +85,7 @@ def openfile_key(event):
     
 root.bind('<Control-o>',openfile_key)
 
+#function for save file menu button using tkinter filedialog and PIL
 
 def save_as():
     files=[('png','*.png'), ('gif','*.gif'), ('bmp','*.bmp'), \
@@ -102,10 +124,16 @@ def save_key(event):
         
 root.bind('<Control-s>',save_key)
 
+#function for exit file button
+
 def exiter(event):
     root.destroy()
 
 root.bind('<Control-q>',exiter)
+
+#function for clearing the screen
+#configures all tkinter canvas objects' state to hidden
+#deletes all objects from ImageDraw
 
 def clear():
     global image1
@@ -135,6 +163,12 @@ def clear_key(event):
     clear()
 
 root.bind('<Control-Delete>',clear_key)
+
+#undo function
+#configures the most recently created tkinter object to hidden
+#simultaneously deletes the last PIL ImageDraw object
+#uses lists to track objects
+#if the previous action was the clear command, reverses it
 
 def undo():
     global obj_list
@@ -220,6 +254,10 @@ def undo_key(event):
             
 root.bind('<Control-z>',undo_key)
     
+#redo function
+#configures the most recently undid tkinter object to normal
+#simultaneously recreates the most recently undid PIL ImageDraw object
+#uses lists to track objects
 
         
 def redo():
@@ -279,6 +317,8 @@ def redo_key(event):
     redo()
 
 root.bind('<Control-Shift-Z>',redo_key)
+
+#function changeing the width for pencil tool and geometrical objects
 
 def change_width(nr):
     global line_width
@@ -349,12 +389,17 @@ def change_width(nr):
         
     line_width=nr
 
+# accessory functions for the rubber tool
+# when cursor leaves the canvas area, square gets hidden
 
 def delete_rubber_square(event):
     canvas2.itemconfigure(rub, state='hidden')
 
 def undelete_rubber_square(event):
     canvas2.itemconfigure(rub, state='normal')
+
+#function used by the pencil tool
+#tracking coordinates for the drawing of continuous lines
 
 def reset_coords(event):
     canvas2.old_coords = None
@@ -369,6 +414,7 @@ def reset_coords(event):
     pil_list.append(pil_inter_list)
     pil_inter_list=[]
    
+#function drawing continuous line
 
 def motion(event):
     global color
@@ -437,11 +483,16 @@ def motion(event):
     redo_switch='off'
     undo_count=0
 
+# accessory function for the rubber tool
+
 def callback(event):
     x, y = event.x, event.y
     canvas2.coords(rub, x - line_width/2 , y - line_width/2, x + line_width/2, y + line_width/2)
     
-
+#function for the rubber tool
+#draws a white, continuous line
+#similar to pencil
+    
 def rubberer(event):
     global color
     global obj_list
@@ -507,7 +558,10 @@ def rubberer(event):
     
     redo_switch='off'
     undo_count=0
-
+    
+# functions for drawing straight lines
+# showing in real time how the line will look like, once mouse button will be released
+    
 def click(event):
     global xx
     global yy
@@ -526,6 +580,8 @@ def line_motion(event):
     if intermediate_line:
         canvas2.delete(intermediate_line)
     intermediate_line=canvas2.create_line(xx, yy, xxx, yyy, fill=color,width=line_width)
+
+#drawing the final line
     
 def release(event):
     global xxx
@@ -563,7 +619,7 @@ def release(event):
     
     
     
-
+#the same functions for drawing rectangle and oval
 
 def click_sq(event):
     global xx
@@ -677,7 +733,8 @@ def release_ov(event):
     
     
 
-
+#functions making configurations to buttons and calling event based functions
+#they are the first ones to get activated when a button is clicked
 
 def pencil_():
     global pencil
@@ -955,7 +1012,7 @@ def rubber_tool():
         canvas2.unbind('<B1-Motion>')
         canvas2.bind('<Button>',color_localizer)
         
-
+#floodfill function implements a flood_fill algorithm
         
 def floodfill(event):
 
@@ -1015,7 +1072,8 @@ def floodfill(event):
         redo_switch='off'
         undo_count=0
         canvas2.bind('<ButtonRelease-1>', reset_coords)
-
+# function that calls floodfill
+#called when fill button is clicked, makes button configurations also
 def filler():
     global fill
     global rub
@@ -1070,7 +1128,7 @@ def filler():
         canvas2.bind('<Button>',color_localizer)
     
 
-
+# function changes color
 def drawer(col):
     global pencil
     global color
@@ -1175,12 +1233,20 @@ def drawer(col):
         button7.config(text='')
         button8.config(text='')
         button_white.config(text='x')
+        
+# when every line or shape drawing button is unclicked, this function captures the color of the
+# area that was clicked, and sets the color to draw with to that color
 
 def color_localizer(event):
     x=event.x
     y=event.y
-    new_col=rgb_to_name(image1.getpixel((x,y)))
-    drawer(new_col)
+    try:
+        new_col=rgb_to_name(image1.getpixel((x,y)))
+        drawer(new_col)
+    except ValueError:
+        return
+    
+# defineig file menu
 
 menubar = Menu(root)
 filemenu = Menu(menubar, tearoff=0)
@@ -1200,22 +1266,28 @@ menubar.add_cascade(label="Edit", menu=editmenu)
 
 root.config(menu=menubar)
 
+#creating areas for buttons and for drawing
+
 canvas1=Canvas(root, width=80,height=596,bg='white')
 canvas1.grid(row=0, column=0)
 
 canvas2=Canvas(root, width=715,height=596,bg='white')
 canvas2.grid(row=0, column=1)
 
-# PIL create an empty image and draw object to draw on
-# memory only, not visible
+# creating PIL image for drawing
+
 image1 = Image.new("RGB", (715, 596),'white')
 draw = ImageDraw.Draw(image1)
+
+# initial setting - pencil tool active
 
 canvas2['cursor']='pencil'
 canvas2.bind('<B1-Motion>',motion)
 
+# initila setting of coordinates for the pencil tool
 canvas2.old_coords = None
 
+# defining labels for buttons to optimize space usage
 
 label1=LabelFrame(canvas1,borderwidth=0, width=80, height=30)
 label1.grid(row=0, column=0)
@@ -1321,7 +1393,7 @@ label17.grid_propagate(False)
 
 
 
-
+# defining and placing buttons
 
 button1=Button(label1,bg='black', text='x',fg='white', activebackground='black',activeforeground='white',cursor='hand2',command=lambda:drawer('black'))
 button1.grid(row=0,column=0,sticky='nesw')
@@ -1384,14 +1456,4 @@ button_white=Button(label17,bg='white',activebackground='white',cursor='hand2',c
 button_white.grid(row=0,column=0,sticky='nesw')
 
 
-    
-    
-
-
-
-
 root.mainloop()
-
-
-    
- 
