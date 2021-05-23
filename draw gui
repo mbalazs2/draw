@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter import messagebox
 
 from copy import deepcopy
 from PIL import Image, ImageTk,ImageDraw 
@@ -44,6 +45,22 @@ pil_redo=[]
 redo_switch='off'
 undo_count=0
 cleared='unpressed'
+saved='on'
+opened='off'
+
+def on_closing():
+    global saved
+    if saved=='on':
+        root.destroy()
+        return
+    option=messagebox.askyesnocancel("Quit", "Do you want to save changes?")
+    if option==True:
+        save()
+    elif option==None:
+        return
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 #function for open file menu button using tkinter filedialog and PIL
 
@@ -54,31 +71,53 @@ def openfile():
 
     global canvas2
     global image2
+    global draw2
+
+    global saved
+    global canvas2
+
+    global img
+
+    global opened
     
-    root.filename =filedialog. askopenfilename(parent=canvas2,initialdir='/home', \
-           title='Select A Name',filetypes=(('png','*.png'), \
+    if saved=='off':
+        option=messagebox.askyesnocancel("Unsaved file", "Do you want to save changes you made to the current file?")
+        if option==True:
+            save()
+        if option==None:
+            return
+    
+    root.filename =filedialog.askopenfilename(parent=canvas2,initialdir='/home', \
+           title='Select A File To Open',filetypes=(('png','*.png'), \
            ('gif','*.gif'), ('bmp','*.bmp'), \
            ('jpeg','*.jpeg')))
+    
     if root.filename:
-        
+        opened='on'
+        root.title('Draw'+' - '+root.filename)
         canvas2=Canvas(root, width=715,height=596,bg='white')
         canvas2.grid(row=0, column=1)
         canvas2['cursor']='pencil'
         canvas2.bind('<B1-Motion>',motion)
+        button_pencil['relief']='sunken'
+        button_pencil['bg']='orange'
+        
         image = ImageTk.PhotoImage(Image.open(root.filename))
         canvas2.create_image(715/2,596/2, image=image)
+        canvas2.old_coords = None
 
 
         image1 = Image.new("RGB", (715, 596),'white')
         draw = ImageDraw.Draw(image1)
-        image2=Image.open(root.filename)
-        draw = ImageDraw.Draw(image2)
-        
-        
-        
 
+        image2=Image.open(root.filename)
+        img_w, img_h = image2.size
+    
+        offset = ((715- img_w) // 2, (596- img_h) // 2)
+        image1.paste(image2, offset)
+
+        saved='on'
         
-                        
 
 def openfile_key(event):
     openfile()
@@ -88,6 +127,10 @@ root.bind('<Control-o>',openfile_key)
 #function for save file menu button using tkinter filedialog and PIL
 
 def save_as():
+    global canvas2
+    global img
+    global image1
+    global saved_file
     files=[('png','*.png'), ('gif','*.gif'), ('bmp','*.bmp'), \
            ('jpeg','*.jpeg'), ('eps','*.eps'), ('icns','*.icns'), \
            ('ico','*.ico'), ('msp','*.msp'), ('pcx','*.pcx'), \
@@ -101,9 +144,12 @@ def save_as():
            ('ppm','*.ppm'), ('sgi','*.sgi'), ('tiff','*.tiff'), \
            ('webp','*.webp'),('xbm','*.xbm')))
     if root.filename:
-        canvas2.postscript(file='root.filename')
-        img = image1 
+        img = image1
         img.save(root.filename.name, splitext(root.filename.name)[1].strip('.'))
+        root.title('Draw'+' - '+root.filename.name)
+        
+        global saved
+        saved='on'
 
 def save_as_key(event):
     save_as()
@@ -111,12 +157,23 @@ def save_as_key(event):
 root.bind('<Control-Shift-S>',save_as_key)
 
 def save():
-    try:
-        canvas2.postscript(file='root.filename')
-        img = Image.open('root.filename')
-        img.save(root.filename.name, splitext(root.filename.name)[1].strip('.'))
-    except AttributeError:
-        save_as()
+    global canvas2
+    global img
+    global image1
+    global opened
+    global saved
+
+    if opened=='on':
+        img = image1 
+        img.save(root.filename, splitext(root.filename)[1].strip('.'))
+        saved='on'
+    else:
+        try:
+            img = image1 
+            img.save(root.filename.name, splitext(root.filename.name)[1].strip('.'))
+            saved='on'
+        except AttributeError:
+            save_as()
 
 
 def save_key(event):
@@ -127,7 +184,7 @@ root.bind('<Control-s>',save_key)
 #function for exit file button
 
 def exiter(event):
-    root.destroy()
+    on_closing()
 
 root.bind('<Control-q>',exiter)
 
@@ -139,10 +196,14 @@ def clear():
     global image1
     global cleared
     global obj_list
+    global draw
 
     cleared='pressed'
     global redo_switch
     global undo_count
+
+    global saved
+    saved='off'
 
     for el in obj_list:
         if isinstance(el,list):
@@ -183,6 +244,9 @@ def undo():
     global draw
 
     global cleared
+
+    global saved
+    saved='off'
     
 
     if cleared=='pressed':
@@ -271,6 +335,9 @@ def redo():
 
     global image1
     global draw
+
+    global saved
+    saved='off' 
     
     if redo_list!=[] and redo_switch=='on' and undo_count!=0:
         undo_count-=1
@@ -432,6 +499,9 @@ def motion(event):
 
     global cleared
     cleared='unpressed'
+
+    global saved
+    saved='off' 
     
     x, y = event.x, event.y
     
@@ -469,9 +539,12 @@ def motion(event):
         intermediate_list.append(obj)
 # PIL draw
         
-        
-        draw.line([x, y, x1, y1], fill=color, width=line_width+1, joint='curve')
-        pil_inter_list.append(('line',x,y,x1,y1,color,line_width+1))
+        if line_width==1:
+            draw.line([x, y, x1, y1], fill=color, width=line_width, joint='curve')
+            pil_inter_list.append(('line',x,y,x1,y1,color,line_width))
+        else:  
+            draw.line([x, y, x1, y1], fill=color, width=line_width+1, joint='curve')
+            pil_inter_list.append(('line',x,y,x1,y1,color,line_width+1))
         
         
         
@@ -510,6 +583,9 @@ def rubberer(event):
     global cleared
     cleared='unpressed'
 
+    global saved
+    saved='off'
+
     x, y = event.x, event.y
     
   
@@ -545,8 +621,12 @@ def rubberer(event):
         obj=canvas2.create_line(x, y, x1, y1, fill='white',width=line_width)
         intermediate_list.append(obj)
 # PIL draw
-        draw.line([x, y, x1, y1], fill='white', width=line_width+1, joint='curve')
-        pil_inter_list.append(('line',x,y,x1,y1,'white',line_width+1,'curve'))
+        if line_width!=1:
+            draw.line([x, y, x1, y1], fill='white', width=line_width+1, joint='curve')
+            pil_inter_list.append(('line',x,y,x1,y1,'white',line_width+1,'curve'))
+        else:
+            draw.line([x, y, x1, y1], fill='white', width=line_width, joint='curve')
+            pil_inter_list.append(('line',x,y,x1,y1,'white',line_width,'curve'))
 
 
     canvas2.old_coords = x, y
@@ -604,6 +684,9 @@ def release(event):
 
     global cleared
     cleared='unpressed'
+
+    global saved
+    saved='off'
     
     xxx=event.x
     yyy=event.y
@@ -661,6 +744,9 @@ def release_sq(event):
 
     global cleared
     cleared='unpressed'
+
+    global saved
+    saved='off'
     
     xxx=event.x
     yyy=event.y
@@ -718,6 +804,9 @@ def release_ov(event):
 
     global cleared
     cleared='unpressed'
+
+    global saved
+    saved='off'
     
     xxx=event.x
     yyy=event.y
@@ -1030,8 +1119,11 @@ def floodfill(event):
     global redo_switch
     global undo_count
 
+    global saved
+    saved='off'
+
     pix_col=rgb_to_name(image1.getpixel((x,y)))
-    print(pix_col)
+    
     if pix_col!=color:
         q=[]
         q.append((x,y))
@@ -1072,8 +1164,10 @@ def floodfill(event):
         redo_switch='off'
         undo_count=0
         canvas2.bind('<ButtonRelease-1>', reset_coords)
+        
 # function that calls floodfill
 #called when fill button is clicked, makes button configurations also
+
 def filler():
     global fill
     global rub
@@ -1255,7 +1349,7 @@ filemenu.add_separator()
 filemenu.add_command(label="Save          Ctrl+S", command=save)
 filemenu.add_command(label="Save As...  Ctrl+Shift+S", command=save_as)
 filemenu.add_separator()
-filemenu.add_command(label="Exit           Ctrl+Q", command=root.destroy)
+filemenu.add_command(label="Exit           Ctrl+Q", command=on_closing)
 menubar.add_cascade(label="File", menu=filemenu)
 
 editmenu = Menu(menubar, tearoff=0)
