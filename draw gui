@@ -1,19 +1,33 @@
+# python program
+# simple gui for drawing
+
+# uses tkinter and PIL modules to draw two pictures simultaniously
+# this helps functionality and images retain proportions
+# after saving and reopening
+
+# it has a floodfill algorithm implemented but it's slow and needs further
+# optimization
+
+# further inhancements that could be added: more colors, drawing more shapes
+# rotating shapes, modifying canvas size, bending lines, drawing polygons
+# cut tool, copy-paste tool etc.
+
 from tkinter import *
 from tkinter import messagebox
+from tkinter import filedialog
 
 from copy import deepcopy
 from PIL import Image, ImageTk,ImageDraw 
-from tkinter import filedialog
 from os.path import splitext
 from webcolors import rgb_to_name, name_to_rgb
 
-#defining tkinter window
+# defining tkinter window
 root = Tk()
 
 root.title('Draw')
 root.geometry('800x600')
 
-#global variables
+# global variables
 
 color='black'
 line_width=1
@@ -24,12 +38,10 @@ oval='off'
 rubber='off'
 fill='off'
 
-
 xx=None
 yy=None
 xxx=None
 yyy=None
-
 
 intermediate_line=None
 intermediate_sq=None
@@ -68,6 +80,7 @@ def openfile():
     global image
     global draw
     global image1
+    global img
 
     global canvas2
     global image2
@@ -75,9 +88,6 @@ def openfile():
 
     global saved
     global canvas2
-
-    global img
-
     global opened
     
     if saved=='off':
@@ -131,6 +141,7 @@ def save_as():
     global img
     global image1
     global saved_file
+    
     files=[('png','*.png'), ('gif','*.gif'), ('bmp','*.bmp'), \
            ('jpeg','*.jpeg'), ('eps','*.eps'), ('icns','*.icns'), \
            ('ico','*.ico'), ('msp','*.msp'), ('pcx','*.pcx'), \
@@ -212,7 +223,6 @@ def clear():
         else: 
             canvas2.itemconfigure(el,state='hidden')
             
-
     del image1
     image1 = Image.new("RGB", (715, 596),'white')
     draw = ImageDraw.Draw(image1)
@@ -244,11 +254,9 @@ def undo():
     global draw
 
     global cleared
-
     global saved
     saved='off'
     
-
     if cleared=='pressed':
         for el in obj_list:
             if isinstance(el,list):
@@ -349,11 +357,7 @@ def redo():
         else: 
             canvas2.itemconfigure(redo_list[-1], state='normal')
             redo_list.pop(-1)
-
-        
-
-
-
+            
         del image1
         image1 = Image.new("RGB", (715, 596),'white')
         draw = ImageDraw.Draw(image1)
@@ -377,8 +381,6 @@ def redo():
                     draw.rectangle([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
                 elif el[0]=='ellipse':
                     draw.ellipse([el[1], el[2], el[3], el[4]], outline=el[5], width=el[6])
-
-        
 
 def redo_key(event):
     redo()
@@ -545,12 +547,7 @@ def motion(event):
         else:  
             draw.line([x, y, x1, y1], fill=color, width=line_width+1, joint='curve')
             pil_inter_list.append(('line',x,y,x1,y1,color,line_width+1))
-        
-        
-        
             
-    
-    
     canvas2.old_coords = x, y
     canvas2.bind('<ButtonRelease-1>', reset_coords)
     redo_switch='off'
@@ -1203,15 +1200,13 @@ def filler():
     canvas2.unbind("<Leave>")
     canvas2.unbind("<Enter>")
 
-
     if fill=='off':
         fill='on'
         button_fill['relief']='sunken'
         button_fill['bg']='orange'
         canvas2['cursor']='cross'
         canvas2.bind('<Button>',floodfill)
-       
-        
+           
     elif fill=='on':
         fill='off'
         canvas2['cursor']='arrow'
@@ -1220,9 +1215,9 @@ def filler():
         canvas2.unbind('<Button>')
         canvas2.unbind('<B1-Motion>')
         canvas2.bind('<Button>',color_localizer)
-    
-
+        
 # function changes color
+
 def drawer(col):
     global pencil
     global color
@@ -1485,8 +1480,6 @@ label17.grid_rowconfigure(0, weight=1)
 label17.grid_columnconfigure(0, weight=1)
 label17.grid_propagate(False)
 
-
-
 # defining and placing buttons
 
 button1=Button(label1,bg='black', text='x',fg='white', activebackground='black',activeforeground='white',cursor='hand2',command=lambda:drawer('black'))
@@ -1548,6 +1541,5 @@ button_fill.grid(row=0,column=0,sticky='nesw')
 
 button_white=Button(label17,bg='white',activebackground='white',cursor='hand2',command=lambda:drawer('white'))
 button_white.grid(row=0,column=0,sticky='nesw')
-
 
 root.mainloop()
